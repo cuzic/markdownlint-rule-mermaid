@@ -290,6 +290,48 @@ All diagram types supported by Mermaid are validated:
 | **C4 Diagrams** | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
 | **ZenUML** | `zenuml` |
 
+## Backward Compatibility
+
+This rule supports both legacy and modern Mermaid syntax. The official mermaid parser maintains full backward compatibility.
+
+### Legacy Syntax Support
+
+| Category | Legacy Syntax | Modern Syntax | Status |
+|----------|---------------|---------------|--------|
+| Flowcharts | `graph TD` | `flowchart TD` | Both supported |
+| State Diagrams | `stateDiagram` | `stateDiagram-v2` | Both supported |
+| Class Diagrams | `classDiagram` | `classDiagram-v2` | Both supported |
+
+### Arrow Syntax
+
+All arrow styles are supported:
+
+```mermaid
+graph LR
+    A --> B    %% Standard arrow
+    B --- C    %% Line without arrow
+    C -.-> D   %% Dotted arrow
+    D ==> E    %% Thick arrow
+    E --o F    %% Circle end
+    F --x G    %% Cross end
+```
+
+### Subgraph Syntax
+
+Both legacy and modern subgraph syntax are supported:
+
+````markdown
+```mermaid
+graph TD
+    subgraph one
+        A --> B
+    end
+    subgraph two [Two]
+        C --> D
+    end
+```
+````
+
 ## HTML Embedded Mermaid
 
 This rule also validates mermaid diagrams embedded in HTML tags within Markdown files. This is useful when using mermaid with static site generators or custom renderers.
