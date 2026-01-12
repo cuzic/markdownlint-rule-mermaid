@@ -11,6 +11,7 @@ A [markdownlint](https://github.com/DavidAnson/markdownlint) custom rule for val
 - **Helpful Error Messages**: Provides detailed hints for fixing common errors
 - **Line Number Mapping**: Reports exact line numbers in your Markdown file
 - **All Diagram Types**: Supports flowcharts, sequence diagrams, class diagrams, and more
+- **HTML Support**: Validates mermaid diagrams in HTML blocks (`<pre class="mermaid">`, `<div class="mermaid">`)
 - **Parallel Validation**: Efficiently validates multiple diagrams in a single document
 - **Type-Safe**: Built with TypeScript and neverthrow for robust error handling
 
@@ -288,6 +289,71 @@ All diagram types supported by Mermaid are validated:
 | **Block** | `block-beta` |
 | **C4 Diagrams** | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
 | **ZenUML** | `zenuml` |
+
+## HTML Embedded Mermaid
+
+This rule also validates mermaid diagrams embedded in HTML tags within Markdown files. This is useful when using mermaid with static site generators or custom renderers.
+
+### Supported HTML Patterns
+
+```html
+<!-- Using pre tag with mermaid class -->
+<pre class="mermaid">
+flowchart LR
+    A --> B
+</pre>
+
+<!-- Using div tag with mermaid class -->
+<div class="mermaid">
+flowchart LR
+    A --> B
+</div>
+
+<!-- Using code tag with language-mermaid class -->
+<code class="language-mermaid">
+flowchart LR
+    A --> B
+</code>
+
+<!-- Multiple classes are supported -->
+<pre class="diagram mermaid syntax-highlight">
+flowchart LR
+    A --> B
+</pre>
+```
+
+### HTML Entity Decoding
+
+HTML entities in mermaid code are automatically decoded:
+
+```html
+<pre class="mermaid">
+flowchart LR
+    A --&gt; B
+</pre>
+```
+
+The `&gt;` entity is decoded to `>` before validation.
+
+### Limitations
+
+- HTML blocks separated by blank lines are parsed as multiple blocks by markdown-it
+- Avoid blank lines inside HTML mermaid blocks for proper detection:
+
+```html
+<!-- Good: No blank lines inside -->
+<div class="mermaid">
+flowchart LR
+    A --> B
+</div>
+
+<!-- May cause issues: Blank line inside -->
+<div class="mermaid">
+
+flowchart LR
+    A --> B
+</div>
+```
 
 ## Examples
 
