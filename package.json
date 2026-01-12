@@ -33,12 +33,16 @@
     "lint",
     "diagram"
   ],
-  "author": "",
+  "author": "cuzic",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cuzic/markdownlint-rule-mermaid"
+    "url": "git+https://github.com/cuzic/markdownlint-rule-mermaid.git"
   },
+  "bugs": {
+    "url": "https://github.com/cuzic/markdownlint-rule-mermaid/issues"
+  },
+  "homepage": "https://github.com/cuzic/markdownlint-rule-mermaid#readme",
   "peerDependencies": {
     "markdownlint": ">=0.35.0"
   },
