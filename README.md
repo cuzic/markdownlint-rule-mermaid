@@ -1,7 +1,9 @@
 # markdownlint-rule-mermaid
 
 [![npm version](https://badge.fury.io/js/markdownlint-rule-mermaid.svg)](https://www.npmjs.com/package/markdownlint-rule-mermaid)
+[![npm downloads](https://img.shields.io/npm/dm/markdownlint-rule-mermaid.svg)](https://www.npmjs.com/package/markdownlint-rule-mermaid)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/markdownlint-rule-mermaid.svg)](https://nodejs.org)
 
 A [markdownlint](https://github.com/DavidAnson/markdownlint) custom rule for validating Mermaid diagram syntax in Markdown code blocks.
 
