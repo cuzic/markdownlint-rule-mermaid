@@ -498,25 +498,82 @@ function validateBasicBlock(block: CodeBlock): Result<CodeBlock, ValidationError
 }
 
 /**
- * Extract mermaid code blocks from tokens
+ * Patterns for detecting mermaid in HTML blocks
+ */
+const HTML_MERMAID_PATTERNS: RegExp[] = [
+  // <pre class="mermaid">...</pre>
+  /<pre[^>]*\bclass\s*=\s*["'][^"']*\bmermaid\b[^"']*["'][^>]*>([\s\S]*?)<\/pre>/gi,
+  // <div class="mermaid">...</div>
+  /<div[^>]*\bclass\s*=\s*["'][^"']*\bmermaid\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi,
+  // <code class="language-mermaid">...</code>
+  /<code[^>]*\bclass\s*=\s*["'][^"']*\blanguage-mermaid\b[^"']*["'][^>]*>([\s\S]*?)<\/code>/gi,
+];
+
+/**
+ * Decode common HTML entities in mermaid code
+ */
+function decodeHtmlEntities(code: string): string {
+  return code
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
+
+/**
+ * Extract mermaid code from HTML content
+ */
+function extractMermaidFromHtml(html: string, startLine: number): CodeBlock[] {
+  const blocks: CodeBlock[] = [];
+
+  for (const pattern of HTML_MERMAID_PATTERNS) {
+    // Reset regex lastIndex for each pattern
+    pattern.lastIndex = 0;
+
+    for (const match of html.matchAll(pattern)) {
+      const code = match[1];
+      const decodedCode = decodeHtmlEntities(code);
+
+      // Calculate line number offset within the HTML block
+      const beforeMatch = html.substring(0, match.index);
+      const lineOffset = (beforeMatch.match(/\n/g) || []).length;
+
+      blocks.push({
+        code: decodedCode.trim(),
+        startLine: startLine + lineOffset,
+      });
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * Extract mermaid code blocks from tokens (both fence and HTML blocks)
  */
 function extractMermaidBlocks(tokens: Token[]): CodeBlock[] {
   const blocks: CodeBlock[] = [];
 
   for (const token of tokens) {
-    if (token.type !== 'fence') {
+    // Handle markdown fence blocks
+    if (token.type === 'fence') {
+      const lang = token.info.trim().toLowerCase();
+      if (lang === 'mermaid') {
+        blocks.push({
+          code: token.content,
+          startLine: token.lineNumber,
+        });
+      }
       continue;
     }
 
-    const lang = token.info.trim().toLowerCase();
-    if (lang !== 'mermaid') {
-      continue;
+    // Handle HTML blocks
+    if (token.type === 'html_block') {
+      const htmlBlocks = extractMermaidFromHtml(token.content, token.lineNumber);
+      blocks.push(...htmlBlocks);
     }
-
-    blocks.push({
-      code: token.content,
-      startLine: token.lineNumber,
-    });
   }
 
   return blocks;
