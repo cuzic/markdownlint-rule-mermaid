@@ -286,4 +286,141 @@ flowchart LR
       expect(errors.length).toBeGreaterThan(0);
     });
   });
+
+  describe('HTML embedded mermaid', () => {
+    it('should validate mermaid in pre tag with class', async () => {
+      const content = `
+<pre class="mermaid">
+flowchart LR
+  A --> B
+</pre>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should validate mermaid in div tag with class', async () => {
+      const content = `
+<div class="mermaid">
+flowchart LR
+  A --> B
+</div>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should validate mermaid in code tag with language-mermaid class', async () => {
+      const content = `
+<code class="language-mermaid">
+flowchart LR
+  A --> B
+</code>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should detect errors in HTML mermaid blocks', async () => {
+      const content = `
+<pre class="mermaid">
+flowchart LR
+  A --> [B
+</pre>
+`;
+      const errors = await runLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].errorDetail).toContain('bracket');
+    });
+
+    it('should detect empty HTML mermaid blocks', async () => {
+      const content = `
+<div class="mermaid">
+</div>
+`;
+      const errors = await runLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].errorDetail).toContain('Empty Mermaid diagram');
+    });
+
+    it('should handle mermaid class with other classes', async () => {
+      const content = `
+<pre class="diagram mermaid syntax-highlight">
+flowchart LR
+  A --> B
+</pre>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should handle HTML entities in mermaid code', async () => {
+      const content = `
+<pre class="mermaid">
+flowchart LR
+  A --&gt; B
+</pre>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should validate multiple HTML mermaid blocks', async () => {
+      const content = `
+<div class="mermaid">
+flowchart LR
+  A --> B
+</div>
+
+<pre class="mermaid">
+sequenceDiagram
+  Alice->>Bob: Hello
+</pre>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should report errors from multiple HTML blocks', async () => {
+      const content = `
+<div class="mermaid">
+</div>
+
+<pre class="mermaid">
+</pre>
+`;
+      const errors = await runLint(content);
+      expect(errors.length).toBe(2);
+    });
+
+    it('should ignore non-mermaid HTML blocks', async () => {
+      const content = `
+<pre class="javascript">
+const x = 1;
+</pre>
+
+<div class="diagram">
+some content
+</div>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should validate mixed fence and HTML blocks', async () => {
+      const content = `
+\`\`\`mermaid
+flowchart LR
+  A --> B
+\`\`\`
+
+<div class="mermaid">
+sequenceDiagram
+  Alice->>Bob: Hello
+</div>
+`;
+      const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+  });
 });
