@@ -1,20 +1,50 @@
 # markdownlint-rule-mermaid
 
+[![npm version](https://badge.fury.io/js/markdownlint-rule-mermaid.svg)](https://www.npmjs.com/package/markdownlint-rule-mermaid)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A [markdownlint](https://github.com/DavidAnson/markdownlint) custom rule for validating Mermaid diagram syntax in Markdown code blocks.
 
-This rule uses the official [mermaid](https://www.npmjs.com/package/mermaid) package to parse and validate diagrams, providing accurate syntax checking.
+## Features
+
+- **Accurate Validation**: Uses the official [mermaid](https://www.npmjs.com/package/mermaid) parser for precise syntax checking
+- **Helpful Error Messages**: Provides detailed hints for fixing common errors
+- **Line Number Mapping**: Reports exact line numbers in your Markdown file
+- **All Diagram Types**: Supports flowcharts, sequence diagrams, class diagrams, and more
+- **Parallel Validation**: Efficiently validates multiple diagrams in a single document
+- **Type-Safe**: Built with TypeScript and neverthrow for robust error handling
 
 ## Installation
+
+### npm
 
 ```bash
 npm install markdownlint-rule-mermaid
 ```
 
-## Usage
+### pnpm
 
-### With markdownlint-cli2
+```bash
+pnpm add markdownlint-rule-mermaid
+```
 
-Create or update `.markdownlint-cli2.jsonc`:
+### yarn
+
+```bash
+yarn add markdownlint-rule-mermaid
+```
+
+## Quick Start
+
+### 1. Install the rule
+
+```bash
+npm install markdownlint-rule-mermaid markdownlint-cli2
+```
+
+### 2. Create configuration file
+
+Create `.markdownlint-cli2.jsonc` in your project root:
 
 ```jsonc
 {
@@ -22,121 +52,421 @@ Create or update `.markdownlint-cli2.jsonc`:
 }
 ```
 
-### With markdownlint Node.js API
+### 3. Run markdownlint
+
+```bash
+npx markdownlint-cli2 "**/*.md"
+```
+
+## Usage
+
+### With markdownlint-cli2 (Recommended)
+
+[markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) is the recommended CLI for markdownlint.
+
+#### Basic Configuration
+
+`.markdownlint-cli2.jsonc`:
+
+```jsonc
+{
+  "customRules": ["markdownlint-rule-mermaid"]
+}
+```
+
+#### With Rule Options
+
+`.markdownlint-cli2.jsonc`:
+
+```jsonc
+{
+  "customRules": ["markdownlint-rule-mermaid"],
+  "config": {
+    "mermaid-syntax": {
+      "basic": false
+    }
+  }
+}
+```
+
+#### YAML Configuration
+
+`.markdownlint-cli2.yaml`:
+
+```yaml
+customRules:
+  - markdownlint-rule-mermaid
+config:
+  mermaid-syntax:
+    basic: false
+```
+
+### With markdownlint-cli
+
+[markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli) also supports custom rules.
+
+```bash
+npx markdownlint --rules markdownlint-rule-mermaid "**/*.md"
+```
+
+With configuration file `.markdownlintrc`:
+
+```json
+{
+  "mermaid-syntax": true
+}
+```
+
+### With Node.js API
 
 ```javascript
-import markdownlint from 'markdownlint/promise';
+import { lint } from 'markdownlint/promise';
 import mermaidRule from 'markdownlint-rule-mermaid';
 
-const result = await markdownlint({
-  files: ['README.md'],
+const results = await lint({
+  files: ['README.md', 'docs/**/*.md'],
   customRules: [mermaidRule],
   config: {
     'mermaid-syntax': true
   }
 });
-```
 
-## Rule Details
-
-This rule validates Mermaid diagram syntax in fenced code blocks marked with the `mermaid` language identifier.
-
-### What it detects
-
-- Empty Mermaid diagrams
-- Unknown diagram types
-- Syntax errors (unclosed brackets, invalid keywords, etc.)
-- Malformed diagram structures
-
-### Valid Examples
-
-````markdown
-```mermaid
-flowchart LR
-  A --> B
-  B --> C
-```
-
-```mermaid
-sequenceDiagram
-  Alice->>Bob: Hello
-  Bob-->>Alice: Hi
-```
-
-```mermaid
-pie title Pets
-  "Dogs" : 386
-  "Cats" : 85
-```
-````
-
-### Invalid Examples
-
-````markdown
-```mermaid
-flowchart LR
-  A --> [B
-```
-<!-- Error: Unclosed bracket -->
-
-```mermaid
-
-```
-<!-- Error: Empty diagram -->
-
-```mermaid
-unknownDiagram
-  A --> B
-```
-<!-- Error: Unknown diagram type -->
-````
-
-## Configuration
-
-```jsonc
-{
-  "mermaid-syntax": {
-    // Use basic validation only (skip mermaid parser)
-    // Useful if mermaid package causes issues in your environment
-    "basic": false
+// Process results
+for (const [file, errors] of Object.entries(results)) {
+  for (const error of errors) {
+    console.log(`${file}:${error.lineNumber}: ${error.ruleDescription}`);
+    if (error.errorDetail) {
+      console.log(`  ${error.errorDetail}`);
+    }
   }
 }
 ```
 
-### Options
+### With VS Code
+
+Install the [markdownlint extension](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint) and configure it:
+
+`.vscode/settings.json`:
+
+```json
+{
+  "markdownlint.customRules": [
+    "markdownlint-rule-mermaid"
+  ]
+}
+```
+
+Or use a workspace configuration file `.markdownlint-cli2.jsonc` (the extension automatically detects it).
+
+### With Pre-commit Hook
+
+Using [husky](https://github.com/typicode/husky) and [lint-staged](https://github.com/lint-staged/lint-staged):
+
+`package.json`:
+
+```json
+{
+  "lint-staged": {
+    "*.md": "markdownlint-cli2"
+  }
+}
+```
+
+### With GitHub Actions
+
+`.github/workflows/lint.yml`:
+
+```yaml
+name: Lint Markdown
+
+on: [push, pull_request]
+
+jobs:
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install markdownlint-cli2 markdownlint-rule-mermaid
+      - run: npx markdownlint-cli2 "**/*.md"
+```
+
+## Error Messages
+
+This rule provides detailed error messages with hints for fixing common mistakes.
+
+### Empty Diagram
+
+```
+README.md:5 mermaid-syntax Mermaid diagram syntax should be valid
+  Empty Mermaid diagram. Add a diagram type (e.g., flowchart, sequenceDiagram) and content
+```
+
+**Fix**: Add diagram type and content to the code block.
+
+### Unknown Diagram Type
+
+```
+README.md:5 mermaid-syntax Mermaid diagram syntax should be valid
+  Unknown diagram type: "invalidType". Valid types: flowchart, sequenceDiagram, classDiagram, stateDiagram, erDiagram, gantt, pie, mindmap, timeline, gitGraph
+```
+
+**Fix**: Use a valid Mermaid diagram type.
+
+### Unclosed Bracket
+
+```
+README.md:7 mermaid-syntax Mermaid diagram syntax should be valid
+  Unclosed square bracket. Add closing ] to complete the node shape: A[text]
+```
+
+**Fix**: Close all brackets in node definitions.
+
+### Unclosed Block
+
+```
+README.md:10 mermaid-syntax Mermaid diagram syntax should be valid
+  Unclosed block. Add "end" to close subgraph, loop, alt, opt, par, critical, rect, or state block
+```
+
+**Fix**: Add `end` keyword to close the block.
+
+### Incomplete Statement
+
+```
+README.md:6 mermaid-syntax Mermaid diagram syntax should be valid
+  Incomplete statement. Add missing parts (e.g., colon for messages: Alice->>Bob: message)
+```
+
+**Fix**: Complete the statement with required syntax.
+
+## Configuration Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `basic` | boolean | `false` | Use basic validation only (checks for empty diagrams and diagram type presence) |
+| `basic` | boolean | `false` | Use basic validation only (checks for empty diagrams and diagram type presence, skips mermaid parser) |
+
+### When to Use Basic Mode
+
+Set `basic: true` if:
+
+- The mermaid package causes issues in your environment
+- You want faster validation (no parser overhead)
+- You only need to check for empty diagrams and diagram type presence
+
+```jsonc
+{
+  "mermaid-syntax": {
+    "basic": true
+  }
+}
+```
 
 ## Supported Diagram Types
 
 All diagram types supported by Mermaid are validated:
 
-- flowchart / graph
-- sequenceDiagram
-- classDiagram
-- stateDiagram
-- erDiagram
-- journey
-- gantt
-- pie
-- mindmap
-- timeline
-- gitGraph
-- quadrantChart
-- requirementDiagram
-- C4 diagrams
-- sankey
-- block
-- xychart
-- zenuml
-- and more...
+| Category | Diagram Types |
+|----------|---------------|
+| **Flowcharts** | `flowchart`, `graph` |
+| **Sequence** | `sequenceDiagram` |
+| **Class** | `classDiagram`, `classDiagram-v2` |
+| **State** | `stateDiagram`, `stateDiagram-v2` |
+| **Entity Relationship** | `erDiagram` |
+| **User Journey** | `journey` |
+| **Gantt** | `gantt` |
+| **Pie Chart** | `pie` |
+| **Quadrant Chart** | `quadrantChart` |
+| **Requirement** | `requirementDiagram` |
+| **Git Graph** | `gitGraph` |
+| **Mindmap** | `mindmap` |
+| **Timeline** | `timeline` |
+| **Sankey** | `sankey-beta` |
+| **XY Chart** | `xychart-beta` |
+| **Block** | `block-beta` |
+| **C4 Diagrams** | `C4Context`, `C4Container`, `C4Component`, `C4Dynamic`, `C4Deployment` |
+| **ZenUML** | `zenuml` |
+
+## Examples
+
+### Flowchart
+
+````markdown
+```mermaid
+flowchart LR
+    A[Start] --> B{Decision}
+    B -->|Yes| C[OK]
+    B -->|No| D[Cancel]
+    C --> E[End]
+    D --> E
+```
+````
+
+### Sequence Diagram
+
+````markdown
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    Alice->>Bob: Hello Bob, how are you?
+    Bob-->>Alice: Great!
+    Alice-)Bob: See you later!
+```
+````
+
+### Class Diagram
+
+````markdown
+```mermaid
+classDiagram
+    class Animal {
+        +String name
+        +int age
+        +makeSound()
+    }
+    class Dog {
+        +fetch()
+    }
+    Animal <|-- Dog
+```
+````
+
+### State Diagram
+
+````markdown
+```mermaid
+stateDiagram-v2
+    [*] --> Still
+    Still --> [*]
+    Still --> Moving
+    Moving --> Still
+    Moving --> Crash
+    Crash --> [*]
+```
+````
+
+### ER Diagram
+
+````markdown
+```mermaid
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    PRODUCT ||--o{ LINE-ITEM : "is ordered in"
+```
+````
+
+### Gantt Chart
+
+````markdown
+```mermaid
+gantt
+    title Project Schedule
+    dateFormat YYYY-MM-DD
+    section Planning
+        Requirements :a1, 2024-01-01, 7d
+        Design       :a2, after a1, 5d
+    section Development
+        Implementation :a3, after a2, 14d
+        Testing        :a4, after a3, 7d
+```
+````
+
+### Pie Chart
+
+````markdown
+```mermaid
+pie showData
+    title Browser Market Share
+    "Chrome" : 65
+    "Safari" : 19
+    "Firefox" : 4
+    "Edge" : 4
+    "Other" : 8
+```
+````
+
+### Git Graph
+
+````markdown
+```mermaid
+gitGraph
+    commit
+    commit
+    branch develop
+    checkout develop
+    commit
+    commit
+    checkout main
+    merge develop
+    commit
+```
+````
+
+## Troubleshooting
+
+### "Cannot find module 'markdownlint-rule-mermaid'"
+
+Make sure the package is installed:
+
+```bash
+npm install markdownlint-rule-mermaid
+```
+
+### Slow Validation
+
+The first validation may be slow due to mermaid initialization. Subsequent validations are faster due to caching.
+
+If speed is critical, use basic mode:
+
+```jsonc
+{
+  "mermaid-syntax": {
+    "basic": true
+  }
+}
+```
+
+### Memory Issues
+
+Mermaid requires a DOM environment. If you encounter memory issues, try:
+
+1. Use basic mode
+2. Increase Node.js memory limit: `NODE_OPTIONS=--max-old-space-size=4096`
+
+### False Positives
+
+If you believe a valid diagram is being reported as invalid:
+
+1. Check if the diagram renders correctly on [Mermaid Live Editor](https://mermaid.live/)
+2. Ensure you're using the latest version of this rule
+3. [Open an issue](https://github.com/cuzic/markdownlint-rule-mermaid/issues) with the diagram that causes the false positive
 
 ## Requirements
 
-- Node.js >= 18.0.0
-- markdownlint >= 0.35.0
+- **Node.js**: >= 18.0.0
+- **markdownlint**: >= 0.35.0
+
+## Related Projects
+
+- [markdownlint](https://github.com/DavidAnson/markdownlint) - Markdown linter
+- [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2) - CLI for markdownlint
+- [mermaid](https://github.com/mermaid-js/mermaid) - Diagram and flowchart generation
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests (`npm test`)
+4. Run linter (`npm run lint`)
+5. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ## License
 
