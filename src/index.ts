@@ -1,14 +1,33 @@
 /**
  * markdownlint-rule-mermaid
  * Validates Mermaid diagram syntax in Markdown code blocks
+ *
+ * Also includes KaTeX math validation rule
  */
 
 import { JSDOM } from 'jsdom';
+import katex, { type KatexOptions } from 'katex';
 import { err, errAsync, ok, type Result, ResultAsync } from 'neverthrow';
+
+// Type for katex internal __parse API (not in official types)
+interface KatexWithParse {
+  __parse(expression: string, options?: KatexOptions): unknown[];
+  // biome-ignore lint/style/useNamingConvention: matches katex API
+  ParseError: typeof katex.ParseError;
+}
+
+const katexParser = katex as unknown as KatexWithParse;
 
 export interface MermaidRuleConfig {
   /** Use basic validation only (skip mermaid parser) */
   basic?: boolean;
+}
+
+export interface KatexRuleConfig {
+  /** Enable display mode for all math blocks (default: false) */
+  displayMode?: boolean;
+  /** Enable strict mode for LaTeX parsing (default: false) */
+  strict?: boolean;
 }
 
 interface OnErrorParams {
@@ -57,7 +76,7 @@ interface MarkdownlintRule {
   tags: string[];
   parser: string;
   asynchronous: boolean;
-  function: (params: RuleParams, onError: OnErrorCallback) => Promise<void>;
+  function: (params: RuleParams, onError: OnErrorCallback) => Promise<void> | void;
 }
 
 /**
@@ -616,5 +635,224 @@ const mermaidSyntaxRule: MarkdownlintRule = {
   },
 };
 
+// =============================================================================
+// KaTeX Math Validation Rule
+// =============================================================================
+
+/**
+ * Supported code block identifiers for math/KaTeX
+ */
+const KATEX_LANGS: string[] = ['math', 'latex', 'tex', 'katex'];
+
+/**
+ * Patterns for detecting math in HTML blocks
+ */
+const HTML_KATEX_PATTERNS: RegExp[] = [
+  // <span class="math">...</span>
+  /<span[^>]*\bclass\s*=\s*["'][^"']*\bmath\b[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi,
+  // <div class="math">...</div>
+  /<div[^>]*\bclass\s*=\s*["'][^"']*\bmath\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi,
+  // <code class="language-math">...</code>
+  /<code[^>]*\bclass\s*=\s*["'][^"']*\blanguage-(?:math|latex|tex|katex)\b[^"']*["'][^>]*>([\s\S]*?)<\/code>/gi,
+];
+
+/**
+ * Extract math code blocks from tokens (both fence and HTML blocks)
+ */
+function extractKatexBlocks(tokens: Token[]): CodeBlock[] {
+  const blocks: CodeBlock[] = [];
+
+  for (const token of tokens) {
+    // Handle markdown fence blocks
+    if (token.type === 'fence') {
+      const lang = token.info.trim().toLowerCase();
+      if (KATEX_LANGS.includes(lang)) {
+        blocks.push({
+          code: token.content,
+          startLine: token.lineNumber,
+        });
+      }
+      continue;
+    }
+
+    // Handle HTML blocks
+    if (token.type === 'html_block') {
+      const htmlBlocks = extractKatexFromHtml(token.content, token.lineNumber);
+      blocks.push(...htmlBlocks);
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * Extract math code from HTML content
+ */
+function extractKatexFromHtml(html: string, startLine: number): CodeBlock[] {
+  const blocks: CodeBlock[] = [];
+
+  for (const pattern of HTML_KATEX_PATTERNS) {
+    pattern.lastIndex = 0;
+
+    for (const match of html.matchAll(pattern)) {
+      const code = match[1];
+      const decodedCode = decodeHtmlEntities(code);
+
+      const beforeMatch = html.substring(0, match.index);
+      const lineOffset = (beforeMatch.match(/\n/g) || []).length;
+
+      blocks.push({
+        code: decodedCode.trim(),
+        startLine: startLine + lineOffset,
+      });
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * Check if KaTeX code is not empty
+ */
+function checkKatexNotEmpty(block: CodeBlock): Result<CodeBlock, ValidationError> {
+  const trimmed = block.code.trim();
+  if (!trimmed) {
+    return err({
+      lineNumber: block.startLine,
+      detail: 'Empty math block. Add a LaTeX expression (e.g., E = mc^2)',
+    });
+  }
+  return ok({ code: trimmed, startLine: block.startLine });
+}
+
+/**
+ * Get hint for common KaTeX error messages
+ */
+function getKatexErrorHint(message: string): string {
+  if (message.includes('Undefined control sequence')) {
+    return '. Check for typos in command names or use \\text{} for regular text';
+  }
+  if (message.includes("Expected '}'")) {
+    return '. Make sure all braces {} are properly closed';
+  }
+  if (message.includes('Expected group')) {
+    return '. Add the required argument in braces: \\command{argument}';
+  }
+  if (message.includes('Unexpected end of input')) {
+    return '. The expression is incomplete - check for missing closing braces or arguments';
+  }
+  return '';
+}
+
+/**
+ * Calculate error line from position offset
+ */
+function calculateKatexErrorLine(code: string, position: number, startLine: number): number {
+  const beforeError = code.substring(0, position);
+  const lineOffset = (beforeError.match(/\n/g) || []).length;
+  return startLine + lineOffset;
+}
+
+/**
+ * Extract context around error position
+ */
+function extractKatexContext(code: string, position: number): string {
+  const start = Math.max(0, position - 15);
+  const end = Math.min(code.length, position + 15);
+  return code.substring(start, end).replace(/\n/g, ' ');
+}
+
+/**
+ * Parse KaTeX error and create user-friendly message
+ */
+function parseKatexError(error: unknown, block: CodeBlock): ValidationError {
+  if (error instanceof katexParser.ParseError) {
+    const message = error.message;
+    const position = (error as InstanceType<typeof katexParser.ParseError> & { position?: number })
+      .position;
+
+    const cleanMessage = message.replace(/^KaTeX parse error:\s*/i, '');
+    const hint = getKatexErrorHint(cleanMessage);
+
+    const errorLine =
+      typeof position === 'number'
+        ? calculateKatexErrorLine(block.code, position, block.startLine)
+        : block.startLine;
+
+    const context =
+      typeof position === 'number' ? extractKatexContext(block.code, position) : undefined;
+
+    return {
+      lineNumber: errorLine,
+      detail: cleanMessage + hint,
+      context,
+    };
+  }
+
+  // Unknown error type
+  return {
+    lineNumber: block.startLine,
+    detail: error instanceof Error ? error.message : 'Unknown KaTeX parse error',
+    context: block.code.substring(0, 40),
+  };
+}
+
+/**
+ * Validate KaTeX syntax using katex.__parse
+ */
+function validateKatexSyntax(
+  block: CodeBlock,
+  config: KatexRuleConfig
+): Result<CodeBlock, ValidationError> {
+  try {
+    // Use katex.__parse for validation (doesn't render, just parses)
+    katexParser.__parse(block.code, {
+      displayMode: config.displayMode ?? false,
+      strict: config.strict ?? false,
+    });
+    return ok(block);
+  } catch (error) {
+    return err(parseKatexError(error, block));
+  }
+}
+
+/**
+ * Validate a single KaTeX code block
+ */
+function validateKatexBlock(
+  block: CodeBlock,
+  config: KatexRuleConfig
+): Result<CodeBlock, ValidationError> {
+  const emptyCheck = checkKatexNotEmpty(block);
+
+  if (emptyCheck.isErr()) {
+    return emptyCheck;
+  }
+
+  return validateKatexSyntax(emptyCheck.value, config);
+}
+
+/**
+ * The KaTeX/math markdownlint custom rule
+ */
+const katexSyntaxRule: MarkdownlintRule = {
+  names: ['katex-syntax', 'math-syntax'],
+  description: 'KaTeX/LaTeX math syntax should be valid',
+  tags: ['math', 'katex', 'latex', 'code'],
+  parser: 'markdownit',
+  asynchronous: false,
+  function: function rule(params: RuleParams, onError: OnErrorCallback): void {
+    const config = (params.config ?? {}) as KatexRuleConfig;
+    const tokens = params.parsers.markdownit.tokens;
+
+    const blocks = extractKatexBlocks(tokens);
+
+    // Validate all blocks (synchronous)
+    for (const block of blocks) {
+      validateKatexBlock(block, config).mapErr(onError);
+    }
+  },
+};
+
 export default mermaidSyntaxRule;
-export { mermaidSyntaxRule };
+export { mermaidSyntaxRule, katexSyntaxRule };

@@ -5,9 +5,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/node/v/markdownlint-rule-mermaid.svg)](https://nodejs.org)
 
-A [markdownlint](https://github.com/DavidAnson/markdownlint) custom rule for validating Mermaid diagram syntax in Markdown code blocks.
+A [markdownlint](https://github.com/DavidAnson/markdownlint) custom rule for validating Mermaid diagram syntax and KaTeX/LaTeX math expressions in Markdown code blocks.
 
 ## Features
+
+### Mermaid Validation (`mermaid-syntax`)
 
 - **Accurate Validation**: Uses the official [mermaid](https://www.npmjs.com/package/mermaid) parser for precise syntax checking
 - **Helpful Error Messages**: Provides detailed hints for fixing common errors
@@ -15,6 +17,16 @@ A [markdownlint](https://github.com/DavidAnson/markdownlint) custom rule for val
 - **All Diagram Types**: Supports flowcharts, sequence diagrams, class diagrams, and more
 - **HTML Support**: Validates mermaid diagrams in HTML blocks (`<pre class="mermaid">`, `<div class="mermaid">`)
 - **Parallel Validation**: Efficiently validates multiple diagrams in a single document
+
+### KaTeX/Math Validation (`katex-syntax`)
+
+- **LaTeX Validation**: Uses the official [KaTeX](https://www.npmjs.com/package/katex) parser
+- **Multiple Languages**: Supports `math`, `latex`, `tex`, and `katex` code blocks
+- **Rich Error Messages**: Provides hints for undefined commands, missing braces, etc.
+- **HTML Support**: Validates math in HTML blocks (`<span class="math">`, `<div class="math">`)
+
+### Shared Features
+
 - **Type-Safe**: Built with TypeScript and neverthrow for robust error handling
 
 ## Installation
@@ -87,6 +99,9 @@ npx markdownlint-cli2 "**/*.md"
   "config": {
     "mermaid-syntax": {
       "basic": false
+    },
+    "katex-syntax": {
+      "displayMode": false
     }
   }
 }
@@ -198,9 +213,11 @@ jobs:
 
 ## Error Messages
 
-This rule provides detailed error messages with hints for fixing common mistakes.
+This package provides detailed error messages with hints for fixing common mistakes.
 
-### Empty Diagram
+### Mermaid Errors
+
+#### Empty Diagram
 
 ```
 README.md:5 mermaid-syntax Mermaid diagram syntax should be valid
@@ -209,7 +226,7 @@ README.md:5 mermaid-syntax Mermaid diagram syntax should be valid
 
 **Fix**: Add diagram type and content to the code block.
 
-### Unknown Diagram Type
+#### Unknown Diagram Type
 
 ```
 README.md:5 mermaid-syntax Mermaid diagram syntax should be valid
@@ -218,7 +235,7 @@ README.md:5 mermaid-syntax Mermaid diagram syntax should be valid
 
 **Fix**: Use a valid Mermaid diagram type.
 
-### Unclosed Bracket
+#### Unclosed Bracket
 
 ```
 README.md:7 mermaid-syntax Mermaid diagram syntax should be valid
@@ -227,7 +244,7 @@ README.md:7 mermaid-syntax Mermaid diagram syntax should be valid
 
 **Fix**: Close all brackets in node definitions.
 
-### Unclosed Block
+#### Unclosed Block
 
 ```
 README.md:10 mermaid-syntax Mermaid diagram syntax should be valid
@@ -236,7 +253,7 @@ README.md:10 mermaid-syntax Mermaid diagram syntax should be valid
 
 **Fix**: Add `end` keyword to close the block.
 
-### Incomplete Statement
+#### Incomplete Statement
 
 ```
 README.md:6 mermaid-syntax Mermaid diagram syntax should be valid
@@ -245,13 +262,44 @@ README.md:6 mermaid-syntax Mermaid diagram syntax should be valid
 
 **Fix**: Complete the statement with required syntax.
 
+### KaTeX Errors
+
+#### Empty Math Block
+
+```
+README.md:5 katex-syntax KaTeX/LaTeX math syntax should be valid
+  Empty math block. Add a LaTeX expression (e.g., E = mc^2)
+```
+
+**Fix**: Add a LaTeX expression to the code block.
+
+#### Undefined Control Sequence
+
+```
+README.md:5 katex-syntax KaTeX/LaTeX math syntax should be valid
+  Undefined control sequence: \unknowncommand. Check for typos in command names or use \text{} for regular text
+```
+
+**Fix**: Check the command name for typos or use a supported KaTeX command.
+
+#### Missing Argument
+
+```
+README.md:5 katex-syntax KaTeX/LaTeX math syntax should be valid
+  Expected '}', got 'EOF' at end of input. Make sure all braces {} are properly closed
+```
+
+**Fix**: Add the missing closing brace or argument.
+
 ## Configuration Options
+
+### Mermaid Rule (`mermaid-syntax`)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `basic` | boolean | `false` | Use basic validation only (checks for empty diagrams and diagram type presence, skips mermaid parser) |
 
-### When to Use Basic Mode
+#### When to Use Basic Mode
 
 Set `basic: true` if:
 
@@ -263,6 +311,22 @@ Set `basic: true` if:
 {
   "mermaid-syntax": {
     "basic": true
+  }
+}
+```
+
+### KaTeX Rule (`katex-syntax`)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `displayMode` | boolean | `false` | Parse in display mode (centered, larger symbols) |
+| `strict` | boolean | `false` | Enable strict mode for LaTeX parsing |
+
+```jsonc
+{
+  "katex-syntax": {
+    "displayMode": true,
+    "strict": false
   }
 }
 ```
@@ -513,6 +577,59 @@ gitGraph
     checkout main
     merge develop
     commit
+```
+````
+
+## KaTeX/Math Examples
+
+### Simple Equation
+
+````markdown
+```math
+E = mc^2
+```
+````
+
+### Fraction
+
+````markdown
+```latex
+\frac{a + b}{c - d}
+```
+````
+
+### Sum and Integral
+
+````markdown
+```math
+\sum_{i=1}^{n} x_i = \int_{0}^{\infty} f(x) dx
+```
+````
+
+### Matrix
+
+````markdown
+```math
+\begin{pmatrix}
+a & b \\
+c & d
+\end{pmatrix}
+```
+````
+
+### Greek Letters
+
+````markdown
+```tex
+\alpha + \beta = \gamma
+```
+````
+
+### Complex Expression
+
+````markdown
+```katex
+\lim_{x \to \infty} \left(1 + \frac{1}{x}\right)^x = e
 ```
 ````
 

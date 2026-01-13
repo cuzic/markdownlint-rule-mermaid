@@ -1,7 +1,7 @@
 import type { LintError } from 'markdownlint';
 import { lint } from 'markdownlint/promise';
 import { describe, expect, it } from 'vitest';
-import mermaidSyntaxRule from '../src/index.js';
+import mermaidSyntaxRule, { katexSyntaxRule } from '../src/index.js';
 
 async function runLint(
   content: string,
@@ -420,6 +420,280 @@ sequenceDiagram
 </div>
 `;
       const errors = await runLint(content);
+      expect(errors).toHaveLength(0);
+    });
+  });
+});
+
+// =============================================================================
+// KaTeX/Math Rule Tests
+// =============================================================================
+
+async function runKatexLint(
+  content: string,
+  config: Record<string, unknown> = {}
+): Promise<LintError[]> {
+  const result = await lint({
+    strings: { test: content },
+    customRules: [katexSyntaxRule],
+    config: {
+      default: false,
+      'katex-syntax': config,
+    },
+  });
+  return result.test;
+}
+
+describe('katex-syntax rule', () => {
+  describe('valid math expressions', () => {
+    it('should pass valid simple expression in math block', async () => {
+      const content = `
+\`\`\`math
+E = mc^2
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should pass valid expression in latex block', async () => {
+      const content = `
+\`\`\`latex
+\\frac{a}{b}
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should pass valid expression in tex block', async () => {
+      const content = `
+\`\`\`tex
+\\sqrt{x^2 + y^2}
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should pass valid expression in katex block', async () => {
+      const content = `
+\`\`\`katex
+\\sum_{i=1}^{n} x_i
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should pass valid integral expression', async () => {
+      const content = `
+\`\`\`math
+\\int_{0}^{\\infty} e^{-x} dx
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should pass valid matrix expression', async () => {
+      const content = `
+\`\`\`math
+\\begin{pmatrix}
+a & b \\\\
+c & d
+\\end{pmatrix}
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should pass valid Greek letters', async () => {
+      const content = `
+\`\`\`math
+\\alpha + \\beta = \\gamma
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should ignore non-math code blocks', async () => {
+      const content = `
+\`\`\`javascript
+const x = 1;
+\`\`\`
+
+\`\`\`python
+print("hello")
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+  });
+
+  describe('invalid math expressions', () => {
+    it('should detect empty math block', async () => {
+      const content = `
+\`\`\`math
+
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].errorDetail).toContain('Empty math block');
+    });
+
+    it('should detect undefined control sequence', async () => {
+      const content = `
+\`\`\`math
+\\unknowncommand
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].errorDetail).toContain('Undefined control sequence');
+    });
+
+    it('should detect unclosed brace', async () => {
+      const content = `
+\`\`\`math
+\\frac{1}{2
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should detect missing argument', async () => {
+      const content = `
+\`\`\`math
+\\frac{1}
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should detect unbalanced braces', async () => {
+      const content = `
+\`\`\`math
+x^{2
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should report helpful hint for undefined command', async () => {
+      const content = `
+\`\`\`math
+\\badcmd
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].errorDetail).toContain('typos');
+    });
+  });
+
+  describe('multiple math blocks', () => {
+    it('should validate all math blocks in document', async () => {
+      const content = `
+# Equation 1
+
+\`\`\`math
+E = mc^2
+\`\`\`
+
+# Equation 2
+
+\`\`\`latex
+F = ma
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should report errors from multiple blocks', async () => {
+      const content = `
+\`\`\`math
+
+\`\`\`
+
+\`\`\`latex
+
+\`\`\`
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBe(2);
+    });
+  });
+
+  describe('HTML embedded math', () => {
+    it('should validate math in span tag with class', async () => {
+      const content = `
+<span class="math">
+E = mc^2
+</span>
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should validate math in div tag with class', async () => {
+      const content = `
+<div class="math">
+\\frac{a}{b}
+</div>
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should validate math in code tag with language-math class', async () => {
+      const content = `
+<code class="language-math">
+x^2 + y^2 = z^2
+</code>
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+
+    it('should detect errors in HTML math blocks', async () => {
+      const content = `
+<span class="math">
+\\unknownfunc
+</span>
+`;
+      const errors = await runKatexLint(content);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].errorDetail).toContain('Undefined control sequence');
+    });
+
+    it('should handle HTML entities in math code', async () => {
+      const content = `
+<span class="math">
+a &lt; b
+</span>
+`;
+      const errors = await runKatexLint(content);
+      expect(errors).toHaveLength(0);
+    });
+  });
+
+  describe('configuration', () => {
+    it('should work with displayMode enabled', async () => {
+      const content = `
+\`\`\`math
+\\sum_{i=1}^{n} x_i
+\`\`\`
+`;
+      const errors = await runKatexLint(content, { displayMode: true });
       expect(errors).toHaveLength(0);
     });
   });
